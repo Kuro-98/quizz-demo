@@ -465,23 +465,23 @@
 // ▼ CONFIGURACIÓN FIREBASE — reemplaza con tus credenciales ▼
 // ============================================================
 const firebaseConfig = {
-  apiKey: "TU_API_KEY",
-  authDomain: "TU_PROJECT.firebaseapp.com",
-  projectId: "TU_PROJECT_ID",
-  storageBucket: "TU_PROJECT.appspot.com",
-  messagingSenderId: "TU_MESSAGING_ID",
-  appId: "TU_APP_ID"
+  apiKey: "AIzaSyDqoBuBnxBOG2hXWgZQ8N6GyCKBPNrV4VY",
+  authDomain: "appdata-a569e.firebaseapp.com",
+  projectId: "appdata-a569e",
+  storageBucket: "appdata-a569e.firebasestorage.app",
+  messagingSenderId: "601954334471",
+  appId: "1:601954334471:web:392dba5f723365d974b7a2"
 };
 
 // Inicializar Firebase
 let db;
 try {
-  firebase.initializeApp(firebaseConfig);
+  const app = firebase.initializeApp(firebaseConfig);
   db = firebase.firestore();
+  console.log('Firebase conectado correctamente');
 } catch(e) {
-  // Demo sin Firebase — guarda en localStorage
   db = null;
-  console.warn('Firebase no configurado. Corriendo en modo demo local.');
+  console.warn('Firebase no disponible, modo local:', e.message);
 }
 
 // ============================================================
