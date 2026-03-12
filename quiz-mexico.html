@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trivia México</title>
+
+<!-- Firebase v9 compat -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@400;500&display=swap');
+
+  :root {
+    --verde: #006847;
+    --rojo: #CE1126;
+    --oro: #F4A800;
+    --crema: #FFF8ED;
+    --texto: #1A1A1A;
+    --gris: #6B6B6B;
+    --borde: #E0D8CC;
+    --card: #FFFFFF;
+    --bg: #FAF5EC;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--texto);
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  .header {
+    background: var(--verde);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .bandera {
+    display: flex;
+    height: 28px;
+    border-radius: 3px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.3);
+  }
+  .bandera span { width: 14px; height: 100%; display: block; }
+  .bandera .v { background: #006847; }
+  .bandera .b { background: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 9px; }
+  .bandera .r { background: #CE1126; }
+  .header h1 {
+    font-family: 'Syne', sans-serif;
+    color: white;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+  }
+
+  /* CONTENEDOR */
+  .container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 32px 20px;
+  }
+
+  /* SCREENS */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* TARJETAS */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--borde);
+    border-radius: 16px;
+    padding: 32px;
+  }
+
+  /* TÍTULOS */
+  .titulo {
+    font-family: 'Syne', sans-serif;
+    font-size: 26px;
+    font-weight: 800;
+    margin-bottom: 6px;
+    color: var(--texto);
+  }
+  .subtitulo {
+    font-size: 14px;
+    color: var(--gris);
+    margin-bottom: 28px;
+    line-height: 1.5;
+  }
+
+  /* FORMULARIO */
+  .campo {
+    margin-bottom: 18px;
+  }
+  .campo label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--gris);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .campo input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1.5px solid var(--borde);
+    border-radius: 10px;
+    font-size: 15px;
+    font-family: 'DM Sans', sans-serif;
+    background: var(--crema);
+    color: var(--texto);
+    transition: border-color 0.2s;
+    outline: none;
+  }
+  .campo input:focus { border-color: var(--verde); }
+  .campo input.error { border-color: var(--rojo); }
+
+  /* BOTONES */
+  .btn {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 10px;
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.15s, opacity 0.2s;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn-verde { background: var(--verde); color: white; }
+  .btn-rojo { background: var(--rojo); color: white; margin-top: 12px; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* PROGRESO */
+  .progreso-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    font-size: 13px;
+    color: var(--gris);
+  }
+  .progreso-barra {
+    height: 6px;
+    background: var(--borde);
+    border-radius: 99px;
+    margin-bottom: 28px;
+    overflow: hidden;
+  }
+  .progreso-fill {
+    height: 100%;
+    background: var(--verde);
+    border-radius: 99px;
+    transition: width 0.4s ease;
+  }
+
+  /* DIFICULTAD */
+  .dificultad-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 99px;
+    font-size: 11px;
+    font-weight: 500;
+    margin-bottom: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .dif-facil { background: #DDFBE8; color: #166534; }
+  .dif-dificil { background: #FEE2E2; color: #991B1B; }
+
+  /* PREGUNTA */
+  .pregunta-texto {
+    font-family: 'Syne', sans-serif;
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1.4;
+    margin-bottom: 24px;
+  }
+
+  /* OPCIONES */
+  .opciones { display: flex; flex-direction: column; gap: 10px; }
+  .opcion {
+    padding: 13px 16px;
+    border: 1.5px solid var(--borde);
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 15px;
+    background: var(--crema);
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .opcion:hover:not(.disabled) { border-color: var(--verde); background: #F0FAF5; }
+  .opcion.correcta { border-color: #16A34A; background: #DDFBE8; color: #166534; }
+  .opcion.incorrecta { border-color: var(--rojo); background: #FEE2E2; color: #991B1B; }
+  .opcion.disabled { cursor: default; }
+  .opcion-letra {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--borde);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .opcion.correcta .opcion-letra { background: #16A34A; color: white; }
+  .opcion.incorrecta .opcion-letra { background: var(--rojo); color: white; }
+
+  /* FEEDBACK */
+  .feedback {
+    margin-top: 16px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 14px;
+    line-height: 1.5;
+    display: none;
+  }
+  .feedback.correcto { background: #DDFBE8; color: #166534; display: block; }
+  .feedback.incorrecto { background: #FEE2E2; color: #991B1B; display: block; }
+
+  /* SIGUIENTE */
+  .btn-siguiente {
+    margin-top: 20px;
+    display: none;
+  }
+
+  /* RESULTADO */
+  .score-circulo {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    border: 6px solid var(--verde);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 24px;
+    background: #F0FAF5;
+  }
+  .score-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--verde);
+    line-height: 1;
+  }
+  .score-total {
+    font-size: 13px;
+    color: var(--gris);
+  }
+  .resultado-titulo {
+    text-align: center;
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    margin-bottom: 8px;
+  }
+  .resultado-msg {
+    text-align: center;
+    color: var(--gris);
+    font-size: 14px;
+    margin-bottom: 24px;
+    line-height: 1.6;
+  }
+  .resumen-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--borde);
+    font-size: 14px;
+  }
+  .resumen-item:last-child { border-bottom: none; }
+  .tag-correcto { color: #16A34A; font-weight: 500; }
+  .tag-incorrecto { color: var(--rojo); font-weight: 500; }
+
+  /* ADMIN */
+  .admin-tabla {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .admin-tabla th {
+    background: var(--verde);
+    color: white;
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+  }
+  .admin-tabla td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--borde);
+    vertical-align: top;
+  }
+  .admin-tabla tr:hover td { background: #F9F4EB; }
+  .admin-link {
+    display: inline-block;
+    margin-top: 12px;
+    font-size: 13px;
+    color: var(--gris);
+    cursor: pointer;
+    text-decoration: underline;
+  }
+
+  /* LOADING */
+  .loading {
+    text-align: center;
+    padding: 40px;
+    color: var(--gris);
+    font-size: 15px;
+  }
+
+  /* MENSAJE ERROR */
+  .msg-error {
+    color: var(--rojo);
+    font-size: 13px;
+    margin-top: 8px;
+    display: none;
+  }
+
+  /* CONFETI simple */
+  .confeti-wrap {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    pointer-events: none;
+    overflow: hidden;
+    height: 100vh;
+    z-index: 999;
+  }
+  .confeti-pieza {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    animation: caer 2.5s ease-in forwards;
+  }
+  @keyframes caer {
+    0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="bandera">
+    <span class="v"></span>
+    <span class="b">🦅</span>
+    <span class="r"></span>
+  </div>
+  <h1>Trivia México</h1>
+</div>
+
+<!-- ===== SCREEN: INICIO / REGISTRO ===== -->
+<div id="screen-registro" class="screen active">
+  <div class="container">
+    <div class="card">
+      <div class="titulo">¡Bienvenido!</div>
+      <div class="subtitulo">
+        Registra tus datos para participar. Al finalizar, tu puntaje quedará guardado. 
+        Los mejores serán contactados para sus premios. 🏆
+      </div>
+
+      <div class="campo">
+        <label>Nombre completo</label>
+        <input type="text" id="inp-nombre" placeholder="Ej. María González" maxlength="80" />
+      </div>
+      <div class="campo">
+        <label>Número de teléfono</label>
+        <input type="tel" id="inp-tel" placeholder="Ej. 5512345678" maxlength="15" />
+      </div>
+      <div class="campo">
+        <label>Correo electrónico</label>
+        <input type="email" id="inp-correo" placeholder="tucorreo@email.com" maxlength="100" />
+      </div>
+
+      <div id="error-registro" class="msg-error">Por favor llena todos los campos correctamente.</div>
+
+      <button class="btn btn-verde" id="btn-iniciar" onclick="iniciarQuiz()">
+        Comenzar Trivia →
+      </button>
+
+      <div class="admin-link" onclick="mostrarAdmin()">Acceso administrador</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN: QUIZ ===== -->
+<div id="screen-quiz" class="screen">
+  <div class="container">
+    <div class="card">
+      <div class="progreso-info">
+        <span id="preg-num">Pregunta 1 de 10</span>
+        <span id="puntos-actuales">0 pts</span>
+      </div>
+      <div class="progreso-barra">
+        <div class="progreso-fill" id="barra-progreso" style="width:0%"></div>
+      </div>
+
+      <span class="dificultad-badge" id="badge-dif">Fácil</span>
+      <div class="pregunta-texto" id="texto-pregunta">...</div>
+
+      <div class="opciones" id="opciones-container"></div>
+
+      <div class="feedback" id="feedback-box"></div>
+
+      <button class="btn btn-verde btn-siguiente" id="btn-siguiente" onclick="siguientePregunta()">
+        Siguiente →
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN: RESULTADO ===== -->
+<div id="screen-resultado" class="screen">
+  <div class="container">
+    <div class="card">
+      <div class="score-circulo">
+        <div class="score-num" id="score-final">0</div>
+        <div class="score-total" id="score-de">de 0</div>
+      </div>
+      <div class="resultado-titulo" id="resultado-titulo">¡Bien hecho!</div>
+      <div class="resultado-msg" id="resultado-msg"></div>
+
+      <div id="resumen-respuestas"></div>
+
+      <button class="btn btn-rojo" onclick="reiniciar()">Volver al inicio</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN: ADMIN ===== -->
+<div id="screen-admin" class="screen">
+  <div class="container">
+    <div class="card">
+      <div class="titulo">Panel de resultados</div>
+      <div class="subtitulo">Todos los participantes y sus puntajes.</div>
+
+      <div id="admin-contenido" class="loading">Cargando datos...</div>
+
+      <button class="btn btn-verde" style="margin-top: 20px;" onclick="mostrarRegistro()">
+        ← Volver
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CONFETI ===== -->
+<div class="confeti-wrap" id="confeti-wrap"></div>
+
+<script>
+// ============================================================
+// ▼ CONFIGURACIÓN FIREBASE — reemplaza con tus credenciales ▼
+// ============================================================
+const firebaseConfig = {
+  apiKey: "TU_API_KEY",
+  authDomain: "TU_PROJECT.firebaseapp.com",
+  projectId: "TU_PROJECT_ID",
+  storageBucket: "TU_PROJECT.appspot.com",
+  messagingSenderId: "TU_MESSAGING_ID",
+  appId: "TU_APP_ID"
+};
+
+// Inicializar Firebase
+let db;
+try {
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+} catch(e) {
+  // Demo sin Firebase — guarda en localStorage
+  db = null;
+  console.warn('Firebase no configurado. Corriendo en modo demo local.');
+}
+
+// ============================================================
+// ▼ PREGUNTAS — puedes editar/agregar/quitar cuando quieras ▼
+// ============================================================
+const PREGUNTAS = [
+  {
+    pregunta: "¿Cuál es el volcán más alto de México?",
+    opciones: ["Popocatépetl", "Pico de Orizaba (Citlaltépetl)", "Nevado de Toluca", "Iztaccíhuatl"],
+    correcta: 1,
+    dificultad: "facil",
+    puntos: 10
+  },
+  {
+    pregunta: "¿En qué año fue la Independencia de México?",
+    opciones: ["1810", "1821", "1810 / 1821", "1800"],
+    correcta: 2,
+    dificultad: "dificil",
+    puntos: 20,
+    explicacion: "El grito fue en 1810, pero la consumación de la Independencia fue el 27 de septiembre de 1821."
+  },
+  {
+    pregunta: "¿Cuál es la moneda oficial de México?",
+    opciones: ["Bolivar", "Quetzal", "Peso mexicano", "Sol"],
+    correcta: 2,
+    dificultad: "facil",
+    puntos: 10
+  },
+  {
+    pregunta: "¿Cómo se llama el deporte nacional de México?",
+    opciones: ["Fútbol", "Béisbol", "Charrería", "Lucha libre"],
+    correcta: 2,
+    dificultad: "facil",
+    puntos: 10
+  },
+  {
+    pregunta: "¿Cuál es la lengua indígena con más hablantes en México?",
+    opciones: ["Zapoteco", "Mixteco", "Náhuatl", "Maya"],
+    correcta: 2,
+    dificultad: "dificil",
+    puntos: 20
+  },
+  {
+    pregunta: "¿En qué estado de México se encuentra la ciudad de Chichen Itzá?",
+    opciones: ["Oaxaca", "Quintana Roo", "Yucatán", "Campeche"],
+    correcta: 2,
+    dificultad: "facil",
+    puntos: 10
+  },
+  {
+    pregunta: "¿Qué presidente mexicano expropió el petróleo en 1938?",
+    opciones: ["Porfirio Díaz", "Benito Juárez", "Plutarco Elías Calles", "Lázaro Cárdenas"],
+    correcta: 3,
+    dificultad: "dificil",
+    puntos: 20
+  },
+  {
+    pregunta: "¿Cuál es el animal del escudo nacional mexicano?",
+    opciones: ["Quetzal", "Jaguar", "Águila real", "Serpiente de cascabel"],
+    correcta: 2,
+    dificultad: "facil",
+    puntos: 10
+  },
+  {
+    pregunta: "¿Cuál es la capital del estado de Oaxaca?",
+    opciones: ["Puerto Escondido", "Oaxaca de Juárez", "Huatulco", "Tehuantepec"],
+    correcta: 1,
+    dificultad: "facil",
+    puntos: 10
+  },
+  {
+    pregunta: "¿Qué civilización construyó Teotihuacán?",
+    opciones: ["Aztecas", "Mayas", "Olmecas", "Se desconoce con certeza"],
+    correcta: 3,
+    dificultad: "dificil",
+    puntos: 20
+  }
+];
+
+// ============================================================
+// ESTADO GLOBAL
+// ============================================================
+let usuario = {};
+let preguntaActual = 0;
+let puntajeTotal = 0;
+let respuestasLog = [];
+let preguntasBajaradas = [];
+
+// ============================================================
+// FUNCIONES DE PANTALLA
+// ============================================================
+function mostrarScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+// ============================================================
+// REGISTRO
+// ============================================================
+function iniciarQuiz() {
+  const nombre = document.getElementById('inp-nombre').value.trim();
+  const tel = document.getElementById('inp-tel').value.trim();
+  const correo = document.getElementById('inp-correo').value.trim();
+  const errDiv = document.getElementById('error-registro');
+
+  const emailOK = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo);
+  const telOK = /^[0-9+\- ]{8,15}$/.test(tel);
+
+  if (!nombre || !telOK || !emailOK) {
+    errDiv.style.display = 'block';
+    if (!emailOK) document.getElementById('inp-correo').classList.add('error');
+    if (!telOK) document.getElementById('inp-tel').classList.add('error');
+    return;
+  }
+
+  errDiv.style.display = 'none';
+  usuario = { nombre, tel, correo, inicio: new Date().toISOString() };
+
+  // Mezclar preguntas
+  preguntasBajaradas = [...PREGUNTAS].sort(() => Math.random() - 0.5);
+  preguntaActual = 0;
+  puntajeTotal = 0;
+  respuestasLog = [];
+
+  mostrarScreen('screen-quiz');
+  mostrarPregunta();
+}
+
+// ============================================================
+// QUIZ
+// ============================================================
+function mostrarPregunta() {
+  const p = preguntasBajaradas[preguntaActual];
+  const total = preguntasBajaradas.length;
+
+  // Progreso
+  document.getElementById('preg-num').textContent = `Pregunta ${preguntaActual + 1} de ${total}`;
+  document.getElementById('puntos-actuales').textContent = `${puntajeTotal} pts`;
+  document.getElementById('barra-progreso').style.width = `${(preguntaActual / total) * 100}%`;
+
+  // Badge dificultad
+  const badge = document.getElementById('badge-dif');
+  badge.textContent = p.dificultad === 'dificil' ? '⚡ Difícil' : '✓ Fácil';
+  badge.className = 'dificultad-badge ' + (p.dificultad === 'dificil' ? 'dif-dificil' : 'dif-facil');
+
+  // Pregunta
+  document.getElementById('texto-pregunta').textContent = p.pregunta;
+
+  // Opciones
+  const letras = ['A', 'B', 'C', 'D'];
+  const cont = document.getElementById('opciones-container');
+  cont.innerHTML = '';
+  p.opciones.forEach((op, i) => {
+    const div = document.createElement('div');
+    div.className = 'opcion';
+    div.innerHTML = `<span class="opcion-letra">${letras[i]}</span> ${op}`;
+    div.onclick = () => seleccionarOpcion(i);
+    cont.appendChild(div);
+  });
+
+  // Reset
+  document.getElementById('feedback-box').className = 'feedback';
+  document.getElementById('feedback-box').textContent = '';
+  document.getElementById('btn-siguiente').style.display = 'none';
+}
+
+function seleccionarOpcion(idx) {
+  const p = preguntasBajaradas[preguntaActual];
+  const opciones = document.querySelectorAll('.opcion');
+
+  // Deshabilitar
+  opciones.forEach(o => o.classList.add('disabled'));
+  opciones.forEach(o => o.onclick = null);
+
+  const correcta = p.opciones[p.correcta];
+  const elegida = p.opciones[idx];
+  const esCorrecta = idx === p.correcta;
+
+  // Colorear
+  opciones[p.correcta].classList.add('correcta');
+  if (!esCorrecta) opciones[idx].classList.add('incorrecta');
+
+  // Feedback
+  const fb = document.getElementById('feedback-box');
+  if (esCorrecta) {
+    puntajeTotal += p.puntos;
+    document.getElementById('puntos-actuales').textContent = `${puntajeTotal} pts`;
+    fb.textContent = `✓ ¡Correcto! +${p.puntos} puntos` + (p.explicacion ? ` — ${p.explicacion}` : '');
+    fb.className = 'feedback correcto';
+  } else {
+    fb.textContent = `✗ Incorrecto. La respuesta es: "${correcta}"` + (p.explicacion ? ` — ${p.explicacion}` : '');
+    fb.className = 'feedback incorrecto';
+  }
+
+  respuestasLog.push({
+    pregunta: p.pregunta,
+    elegida: elegida,
+    correcta: correcta,
+    esCorrecta,
+    puntos: esCorrecta ? p.puntos : 0
+  });
+
+  // Siguiente o finalizar
+  const btnSig = document.getElementById('btn-siguiente');
+  btnSig.style.display = 'block';
+  if (preguntaActual >= preguntasBajaradas.length - 1) {
+    btnSig.textContent = 'Ver resultados →';
+  } else {
+    btnSig.textContent = 'Siguiente →';
+  }
+}
+
+function siguientePregunta() {
+  preguntaActual++;
+  if (preguntaActual >= preguntasBajaradas.length) {
+    finalizarQuiz();
+  } else {
+    mostrarPregunta();
+  }
+}
+
+// ============================================================
+// FINALIZAR
+// ============================================================
+async function finalizarQuiz() {
+  const total = preguntasBajaradas.reduce((s, p) => s + p.puntos, 0);
+  const pct = Math.round((puntajeTotal / total) * 100);
+
+  // Guardar en Firebase
+  const registro = {
+    ...usuario,
+    puntaje: puntajeTotal,
+    puntajeMax: total,
+    porcentaje: pct,
+    respuestas: respuestasLog,
+    fin: new Date().toISOString()
+  };
+
+  await guardarResultado(registro);
+
+  // Mostrar resultados
+  document.getElementById('score-final').textContent = puntajeTotal;
+  document.getElementById('score-de').textContent = `de ${total} pts`;
+
+  let titulo, msg;
+  if (pct >= 80) {
+    titulo = '🏆 ¡Excelente!';
+    msg = `Obtuviste ${pct}% de aciertos. ¡Tienes un gran conocimiento de México! Podrías ser contactado para reclamar un premio.`;
+    lanzarConfeti();
+  } else if (pct >= 50) {
+    titulo = '👍 ¡Buen trabajo!';
+    msg = `Obtuviste ${pct}% de aciertos. ¡Conoces bien México! Sigue aprendiendo.`;
+  } else {
+    titulo = '📚 ¡Sigue practicando!';
+    msg = `Obtuviste ${pct}% de aciertos. ¡México tiene mucho por descubrir!`;
+  }
+
+  document.getElementById('resultado-titulo').textContent = titulo;
+  document.getElementById('resultado-msg').textContent = msg;
+
+  // Resumen
+  const resDiv = document.getElementById('resumen-respuestas');
+  resDiv.innerHTML = respuestasLog.map((r, i) => `
+    <div class="resumen-item">
+      <span>${i + 1}. ${r.pregunta.substring(0, 40)}...</span>
+      <span class="${r.esCorrecta ? 'tag-correcto' : 'tag-incorrecto'}">
+        ${r.esCorrecta ? `+${r.puntos} ✓` : '0 ✗'}
+      </span>
+    </div>
+  `).join('');
+
+  mostrarScreen('screen-resultado');
+}
+
+// ============================================================
+// FIREBASE / LOCAL STORAGE
+// ============================================================
+async function guardarResultado(datos) {
+  if (db) {
+    try {
+      await db.collection('participantes').doc(datos.correo.replace(/[^a-zA-Z0-9]/g, '_')).set(datos, { merge: true });
+      // Si el correo ya existe, solo actualiza si el puntaje es mayor
+    } catch(e) {
+      console.error('Error guardando en Firebase:', e);
+      guardarLocal(datos);
+    }
+  } else {
+    guardarLocal(datos);
+  }
+}
+
+function guardarLocal(datos) {
+  const key = 'quiz_' + datos.correo;
+  const existente = localStorage.getItem(key);
+  if (existente) {
+    const prev = JSON.parse(existente);
+    if (datos.puntaje > prev.puntaje) {
+      localStorage.setItem(key, JSON.stringify(datos));
+    }
+  } else {
+    localStorage.setItem(key, JSON.stringify(datos));
+  }
+}
+
+// ============================================================
+// ADMIN
+// ============================================================
+function mostrarAdmin() {
+  mostrarScreen('screen-admin');
+  cargarAdmin();
+}
+
+async function cargarAdmin() {
+  const cont = document.getElementById('admin-contenido');
+
+  if (db) {
+    try {
+      const snap = await db.collection('participantes').orderBy('puntaje', 'desc').get();
+      if (snap.empty) {
+        cont.innerHTML = '<p style="color:var(--gris);text-align:center;padding:20px">Sin participantes aún.</p>';
+        return;
+      }
+      const rows = snap.docs.map(d => d.data()).map(p => `
+        <tr>
+          <td>${p.nombre}</td>
+          <td>${p.correo}</td>
+          <td>${p.tel}</td>
+          <td><strong>${p.puntaje}</strong> / ${p.puntajeMax}</td>
+          <td>${p.porcentaje}%</td>
+          <td style="font-size:11px;color:var(--gris)">${p.fin ? p.fin.substring(0,10) : ''}</td>
+        </tr>
+      `).join('');
+      cont.innerHTML = `
+        <div style="overflow-x:auto">
+          <table class="admin-tabla">
+            <thead><tr><th>Nombre</th><th>Correo</th><th>Tel</th><th>Puntaje</th><th>%</th><th>Fecha</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+    } catch(e) {
+      cont.innerHTML = '<p style="color:var(--rojo)">Error: ' + e.message + '</p>';
+    }
+  } else {
+    // Leer localStorage
+    const datos = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k.startsWith('quiz_')) {
+        datos.push(JSON.parse(localStorage.getItem(k)));
+      }
+    }
+    datos.sort((a,b) => b.puntaje - a.puntaje);
+
+    if (!datos.length) {
+      cont.innerHTML = '<p style="color:var(--gris);text-align:center;padding:20px">Sin participantes aún. (Modo demo local)</p>';
+      return;
+    }
+    const rows = datos.map(p => `
+      <tr>
+        <td>${p.nombre}</td>
+        <td>${p.correo}</td>
+        <td>${p.tel}</td>
+        <td><strong>${p.puntaje}</strong> / ${p.puntajeMax}</td>
+        <td>${p.porcentaje}%</td>
+      </tr>
+    `).join('');
+    cont.innerHTML = `
+      <p style="color:var(--gris);font-size:12px;margin-bottom:10px">⚠️ Modo demo — sin Firebase. Datos guardados localmente.</p>
+      <div style="overflow-x:auto">
+        <table class="admin-tabla">
+          <thead><tr><th>Nombre</th><th>Correo</th><th>Tel</th><th>Puntaje</th><th>%</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+  }
+}
+
+function mostrarRegistro() {
+  mostrarScreen('screen-registro');
+}
+
+// ============================================================
+// REINICIAR
+// ============================================================
+function reiniciar() {
+  document.getElementById('inp-nombre').value = '';
+  document.getElementById('inp-tel').value = '';
+  document.getElementById('inp-correo').value = '';
+  document.getElementById('inp-nombre').classList.remove('error');
+  document.getElementById('inp-tel').classList.remove('error');
+  document.getElementById('inp-correo').classList.remove('error');
+  mostrarScreen('screen-registro');
+}
+
+// ============================================================
+// CONFETI
+// ============================================================
+function lanzarConfeti() {
+  const wrap = document.getElementById('confeti-wrap');
+  wrap.innerHTML = '';
+  const colores = ['#006847','#CE1126','#F4A800','#FFFFFF','#005C3B'];
+  for (let i = 0; i < 60; i++) {
+    const div = document.createElement('div');
+    div.className = 'confeti-pieza';
+    div.style.cssText = `
+      left: ${Math.random()*100}%;
+      top: -10px;
+      background: ${colores[Math.floor(Math.random()*colores.length)]};
+      animation-delay: ${Math.random()*1.5}s;
+      animation-duration: ${2 + Math.random()}s;
+      width: ${6 + Math.random()*6}px;
+      height: ${6 + Math.random()*6}px;
+    `;
+    wrap.appendChild(div);
+  }
+  setTimeout(() => wrap.innerHTML = '', 4000);
+}
+</script>
+</body>
+</html>
