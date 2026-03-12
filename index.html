@@ -483,6 +483,7 @@ try {
   db = null;
   console.warn('Firebase no disponible, modo local:', e.message);
 }
+db = null; // ← FORZAR MODO LOCAL (quita esta línea cuando quieras activar Firebase)
 
 // ============================================================
 // ▼ PREGUNTAS — puedes editar/agregar/quitar cuando quieras ▼
