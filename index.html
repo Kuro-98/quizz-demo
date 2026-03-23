@@ -163,6 +163,68 @@
     transition: width 0.4s ease;
   }
 
+  /* ===== TIMER ===== */
+  .timer-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    background: var(--crema);
+    border: 1.5px solid var(--borde);
+    border-radius: 12px;
+    padding: 10px 14px;
+    transition: background 0.3s, border-color 0.3s;
+  }
+  .timer-wrap.urgente {
+    background: #FEE2E2;
+    border-color: var(--rojo);
+    animation: pulso 0.8s ease-in-out infinite;
+  }
+  @keyframes pulso {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.015); }
+  }
+  .timer-icono {
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .timer-barra-wrap {
+    flex: 1;
+    height: 8px;
+    background: var(--borde);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  .timer-barra-fill {
+    height: 100%;
+    background: var(--verde);
+    border-radius: 99px;
+    width: 100%;
+    transition: width 1s linear, background 0.5s;
+  }
+  .timer-barra-fill.urgente {
+    background: var(--rojo);
+  }
+  .timer-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    min-width: 32px;
+    text-align: right;
+    color: var(--texto);
+    transition: color 0.3s;
+  }
+  .timer-num.urgente {
+    color: var(--rojo);
+  }
+  .timer-label {
+    font-size: 11px;
+    color: var(--gris);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+  }
+
   /* DIFICULTAD */
   .dificultad-badge {
     display: inline-block;
@@ -230,6 +292,7 @@
   }
   .feedback.correcto { background: #DDFBE8; color: #166534; display: block; }
   .feedback.incorrecto { background: #FEE2E2; color: #991B1B; display: block; }
+  .feedback.tiempo { background: #FEF9C3; color: #854D0E; display: block; }
 
   /* SIGUIENTE */
   .btn-siguiente {
@@ -250,6 +313,10 @@
     margin: 0 auto 24px;
     background: #F0FAF5;
   }
+  .score-circulo.tiempo {
+    border-color: var(--rojo);
+    background: #FEE2E2;
+  }
   .score-num {
     font-family: 'Syne', sans-serif;
     font-size: 32px;
@@ -257,6 +324,7 @@
     color: var(--verde);
     line-height: 1;
   }
+  .score-circulo.tiempo .score-num { color: var(--rojo); }
   .score-total {
     font-size: 13px;
     color: var(--gris);
@@ -285,6 +353,7 @@
   .resumen-item:last-child { border-bottom: none; }
   .tag-correcto { color: #16A34A; font-weight: 500; }
   .tag-incorrecto { color: var(--rojo); font-weight: 500; }
+  .tag-sinresponder { color: var(--gris); font-weight: 500; font-style: italic; }
 
   /* ADMIN */
   .admin-tabla {
@@ -369,8 +438,7 @@
     <div class="card">
       <div class="titulo">¡Bienvenido!</div>
       <div class="subtitulo">
-        Registra tus datos para participar. Al finalizar, tu puntaje quedará guardado. 
-        Los mejores serán contactados para sus premios. 🏆
+        Registra tus datos para participar. Tendrás <strong>60 segundos</strong> para responder todas las preguntas. ¡Al finalizar, tu puntaje quedará guardado y los mejores serán contactados para sus premios! 🏆
       </div>
 
       <div class="campo">
@@ -401,6 +469,17 @@
 <div id="screen-quiz" class="screen">
   <div class="container">
     <div class="card">
+
+      <!-- TIMER GLOBAL -->
+      <div class="timer-wrap" id="timer-wrap">
+        <span class="timer-icono">⏱️</span>
+        <div class="timer-barra-wrap">
+          <div class="timer-barra-fill" id="timer-barra-fill"></div>
+        </div>
+        <div class="timer-num" id="timer-num">60</div>
+        <span class="timer-label">seg</span>
+      </div>
+
       <div class="progreso-info">
         <span id="preg-num">Pregunta 1 de 10</span>
         <span id="puntos-actuales">0 pts</span>
@@ -427,7 +506,7 @@
 <div id="screen-resultado" class="screen">
   <div class="container">
     <div class="card">
-      <div class="score-circulo">
+      <div class="score-circulo" id="score-circulo">
         <div class="score-num" id="score-final">0</div>
         <div class="score-total" id="score-de">de 0</div>
       </div>
@@ -462,7 +541,7 @@
 
 <script>
 // ============================================================
-// ▼ CONFIGURACIÓN FIREBASE — reemplaza con tus credenciales ▼
+// ▼ CONFIGURACIÓN FIREBASE
 // ============================================================
 const firebaseConfig = {
   apiKey: "AIzaSyDqoBuBnxBOG2hXWgZQ8N6GyCKBPNrV4VY",
@@ -473,7 +552,6 @@ const firebaseConfig = {
   appId: "1:601954334471:web:392dba5f723365d974b7a2"
 };
 
-// Inicializar Firebase
 let db;
 try {
   const app = firebase.initializeApp(firebaseConfig);
@@ -483,10 +561,9 @@ try {
   db = null;
   console.warn('Firebase no disponible, modo local:', e.message);
 }
-//db = null; // ← FORZAR MODO LOCAL (quita esta línea cuando quieras activar Firebase)
 
 // ============================================================
-// ▼ PREGUNTAS — puedes editar/agregar/quitar cuando quieras ▼
+// ▼ PREGUNTAS
 // ============================================================
 const PREGUNTAS = [
   {
@@ -565,11 +642,19 @@ const PREGUNTAS = [
 // ============================================================
 // ESTADO GLOBAL
 // ============================================================
+const TIEMPO_TOTAL = 60; // segundos
+
 let usuario = {};
 let preguntaActual = 0;
 let puntajeTotal = 0;
 let respuestasLog = [];
 let preguntasBajaradas = [];
+
+// Timer
+let timerInterval = null;
+let tiempoRestante = TIEMPO_TOTAL;
+let quizTerminadoPorTiempo = false;
+let esperandoSiguiente = false; // indica si hay una respuesta pendiente de "Siguiente"
 
 // ============================================================
 // FUNCIONES DE PANTALLA
@@ -602,37 +687,109 @@ function iniciarQuiz() {
   errDiv.style.display = 'none';
   usuario = { nombre, tel, correo, inicio: new Date().toISOString() };
 
-  // Mezclar preguntas
   preguntasBajaradas = [...PREGUNTAS].sort(() => Math.random() - 0.5);
   preguntaActual = 0;
   puntajeTotal = 0;
   respuestasLog = [];
+  quizTerminadoPorTiempo = false;
+  esperandoSiguiente = false;
 
   mostrarScreen('screen-quiz');
+  iniciarTimer();
   mostrarPregunta();
+}
+
+// ============================================================
+// TIMER GLOBAL
+// ============================================================
+function iniciarTimer() {
+  tiempoRestante = TIEMPO_TOTAL;
+  actualizarUITimer();
+
+  timerInterval = setInterval(() => {
+    tiempoRestante--;
+    actualizarUITimer();
+
+    if (tiempoRestante <= 0) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      tiempoAgotado();
+    }
+  }, 1000);
+}
+
+function detenerTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+}
+
+function actualizarUITimer() {
+  const num = document.getElementById('timer-num');
+  const fill = document.getElementById('timer-barra-fill');
+  const wrap = document.getElementById('timer-wrap');
+
+  if (!num) return;
+
+  num.textContent = tiempoRestante;
+  const pct = (tiempoRestante / TIEMPO_TOTAL) * 100;
+  fill.style.width = pct + '%';
+
+  // Zona de urgencia: últimos 15 segundos
+  const urgente = tiempoRestante <= 15;
+  wrap.classList.toggle('urgente', urgente);
+  fill.classList.toggle('urgente', urgente);
+  num.classList.toggle('urgente', urgente);
+}
+
+function tiempoAgotado() {
+  quizTerminadoPorTiempo = true;
+
+  // Si hay una pregunta en pantalla sin responder, marcarla como sin responder
+  if (!esperandoSiguiente) {
+    // Deshabilitar opciones de la pregunta actual sin marcar respuesta
+    const opciones = document.querySelectorAll('.opcion');
+    opciones.forEach(o => {
+      o.classList.add('disabled');
+      o.onclick = null;
+    });
+
+    // Mostrar feedback de tiempo
+    const fb = document.getElementById('feedback-box');
+    fb.textContent = '⏰ ¡Se acabó el tiempo! Esta pregunta quedó sin responder.';
+    fb.className = 'feedback tiempo';
+
+    // Ocultar botón siguiente, ir directo a resultados tras 1.5s
+    document.getElementById('btn-siguiente').style.display = 'none';
+
+    setTimeout(() => {
+      finalizarQuiz();
+    }, 1500);
+  } else {
+    // Estaban en pausa entre preguntas, finalizar directamente
+    finalizarQuiz();
+  }
 }
 
 // ============================================================
 // QUIZ
 // ============================================================
 function mostrarPregunta() {
+  esperandoSiguiente = false;
   const p = preguntasBajaradas[preguntaActual];
   const total = preguntasBajaradas.length;
 
-  // Progreso
   document.getElementById('preg-num').textContent = `Pregunta ${preguntaActual + 1} de ${total}`;
   document.getElementById('puntos-actuales').textContent = `${puntajeTotal} pts`;
   document.getElementById('barra-progreso').style.width = `${(preguntaActual / total) * 100}%`;
 
-  // Badge dificultad
   const badge = document.getElementById('badge-dif');
   badge.textContent = p.dificultad === 'dificil' ? '⚡ Difícil' : '✓ Fácil';
   badge.className = 'dificultad-badge ' + (p.dificultad === 'dificil' ? 'dif-dificil' : 'dif-facil');
 
-  // Pregunta
   document.getElementById('texto-pregunta').textContent = p.pregunta;
 
-  // Opciones
   const letras = ['A', 'B', 'C', 'D'];
   const cont = document.getElementById('opciones-container');
   cont.innerHTML = '';
@@ -644,17 +801,18 @@ function mostrarPregunta() {
     cont.appendChild(div);
   });
 
-  // Reset
   document.getElementById('feedback-box').className = 'feedback';
   document.getElementById('feedback-box').textContent = '';
   document.getElementById('btn-siguiente').style.display = 'none';
 }
 
 function seleccionarOpcion(idx) {
+  // Si el tiempo ya se agotó, no permitir selección
+  if (quizTerminadoPorTiempo) return;
+
   const p = preguntasBajaradas[preguntaActual];
   const opciones = document.querySelectorAll('.opcion');
 
-  // Deshabilitar
   opciones.forEach(o => o.classList.add('disabled'));
   opciones.forEach(o => o.onclick = null);
 
@@ -662,11 +820,9 @@ function seleccionarOpcion(idx) {
   const elegida = p.opciones[idx];
   const esCorrecta = idx === p.correcta;
 
-  // Colorear
   opciones[p.correcta].classList.add('correcta');
   if (!esCorrecta) opciones[idx].classList.add('incorrecta');
 
-  // Feedback
   const fb = document.getElementById('feedback-box');
   if (esCorrecta) {
     puntajeTotal += p.puntos;
@@ -686,7 +842,8 @@ function seleccionarOpcion(idx) {
     puntos: esCorrecta ? p.puntos : 0
   });
 
-  // Siguiente o finalizar
+  esperandoSiguiente = true;
+
   const btnSig = document.getElementById('btn-siguiente');
   btnSig.style.display = 'block';
   if (preguntaActual >= preguntasBajaradas.length - 1) {
@@ -697,8 +854,15 @@ function seleccionarOpcion(idx) {
 }
 
 function siguientePregunta() {
+  // Si el tiempo se agotó justo mientras esperaban, finalizar
+  if (quizTerminadoPorTiempo) {
+    finalizarQuiz();
+    return;
+  }
+
   preguntaActual++;
   if (preguntaActual >= preguntasBajaradas.length) {
+    detenerTimer();
     finalizarQuiz();
   } else {
     mostrarPregunta();
@@ -709,27 +873,37 @@ function siguientePregunta() {
 // FINALIZAR
 // ============================================================
 async function finalizarQuiz() {
+  detenerTimer();
+
   const total = preguntasBajaradas.reduce((s, p) => s + p.puntos, 0);
   const pct = Math.round((puntajeTotal / total) * 100);
 
-  // Guardar en Firebase
   const registro = {
     ...usuario,
     puntaje: puntajeTotal,
     puntajeMax: total,
     porcentaje: pct,
+    terminadoPorTiempo: quizTerminadoPorTiempo,
+    preguntasRespondidas: respuestasLog.length,
+    preguntasTotales: preguntasBajaradas.length,
     respuestas: respuestasLog,
     fin: new Date().toISOString()
   };
 
   await guardarResultado(registro);
 
-  // Mostrar resultados
+  // UI de resultado
   document.getElementById('score-final').textContent = puntajeTotal;
   document.getElementById('score-de').textContent = `de ${total} pts`;
 
   let titulo, msg;
-  if (pct >= 80) {
+
+  if (quizTerminadoPorTiempo) {
+    // Se acabó el tiempo
+    document.getElementById('score-circulo').classList.add('tiempo');
+    titulo = '⏰ ¡Se acabó el tiempo!';
+    msg = `Respondiste ${respuestasLog.length} de ${preguntasBajaradas.length} preguntas y obtuviste ${puntajeTotal} puntos (${pct}%). ¡La próxima vez sé más rápido!`;
+  } else if (pct >= 80) {
     titulo = '🏆 ¡Excelente!';
     msg = `Obtuviste ${pct}% de aciertos. ¡Tienes un gran conocimiento de México! Podrías ser contactado para reclamar un premio.`;
     lanzarConfeti();
@@ -744,9 +918,9 @@ async function finalizarQuiz() {
   document.getElementById('resultado-titulo').textContent = titulo;
   document.getElementById('resultado-msg').textContent = msg;
 
-  // Resumen
+  // Resumen: preguntas respondidas + sin responder
   const resDiv = document.getElementById('resumen-respuestas');
-  resDiv.innerHTML = respuestasLog.map((r, i) => `
+  let html = respuestasLog.map((r, i) => `
     <div class="resumen-item">
       <span>${i + 1}. ${r.pregunta.substring(0, 40)}...</span>
       <span class="${r.esCorrecta ? 'tag-correcto' : 'tag-incorrecto'}">
@@ -755,6 +929,19 @@ async function finalizarQuiz() {
     </div>
   `).join('');
 
+  // Si no terminó todas, agregar las sin responder
+  if (quizTerminadoPorTiempo) {
+    for (let i = respuestasLog.length; i < preguntasBajaradas.length; i++) {
+      html += `
+        <div class="resumen-item">
+          <span>${i + 1}. ${preguntasBajaradas[i].pregunta.substring(0, 40)}...</span>
+          <span class="tag-sinresponder">Sin responder</span>
+        </div>
+      `;
+    }
+  }
+
+  resDiv.innerHTML = html;
   mostrarScreen('screen-resultado');
 }
 
@@ -765,7 +952,6 @@ async function guardarResultado(datos) {
   if (db) {
     try {
       await db.collection('participantes').doc(datos.correo.replace(/[^a-zA-Z0-9]/g, '_')).set(datos, { merge: true });
-      // Si el correo ya existe, solo actualiza si el puntaje es mayor
     } catch(e) {
       console.error('Error guardando en Firebase:', e);
       guardarLocal(datos);
@@ -813,13 +999,14 @@ async function cargarAdmin() {
           <td>${p.tel}</td>
           <td><strong>${p.puntaje}</strong> / ${p.puntajeMax}</td>
           <td>${p.porcentaje}%</td>
+          <td style="font-size:11px;color:var(--gris)">${p.terminadoPorTiempo ? '⏰' : '✓'}</td>
           <td style="font-size:11px;color:var(--gris)">${p.fin ? p.fin.substring(0,10) : ''}</td>
         </tr>
       `).join('');
       cont.innerHTML = `
         <div style="overflow-x:auto">
           <table class="admin-tabla">
-            <thead><tr><th>Nombre</th><th>Correo</th><th>Tel</th><th>Puntaje</th><th>%</th><th>Fecha</th></tr></thead>
+            <thead><tr><th>Nombre</th><th>Correo</th><th>Tel</th><th>Puntaje</th><th>%</th><th>Fin</th><th>Fecha</th></tr></thead>
             <tbody>${rows}</tbody>
           </table>
         </div>
@@ -828,7 +1015,6 @@ async function cargarAdmin() {
       cont.innerHTML = '<p style="color:var(--rojo)">Error: ' + e.message + '</p>';
     }
   } else {
-    // Leer localStorage
     const datos = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
@@ -849,13 +1035,14 @@ async function cargarAdmin() {
         <td>${p.tel}</td>
         <td><strong>${p.puntaje}</strong> / ${p.puntajeMax}</td>
         <td>${p.porcentaje}%</td>
+        <td style="font-size:11px;color:var(--gris)">${p.terminadoPorTiempo ? '⏰' : '✓'}</td>
       </tr>
     `).join('');
     cont.innerHTML = `
       <p style="color:var(--gris);font-size:12px;margin-bottom:10px">⚠️ Modo demo — sin Firebase. Datos guardados localmente.</p>
       <div style="overflow-x:auto">
         <table class="admin-tabla">
-          <thead><tr><th>Nombre</th><th>Correo</th><th>Tel</th><th>Puntaje</th><th>%</th></tr></thead>
+          <thead><tr><th>Nombre</th><th>Correo</th><th>Tel</th><th>Puntaje</th><th>%</th><th>Fin</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
@@ -871,6 +1058,8 @@ function mostrarRegistro() {
 // REINICIAR
 // ============================================================
 function reiniciar() {
+  detenerTimer();
+  document.getElementById('score-circulo').classList.remove('tiempo');
   document.getElementById('inp-nombre').value = '';
   document.getElementById('inp-tel').value = '';
   document.getElementById('inp-correo').value = '';
